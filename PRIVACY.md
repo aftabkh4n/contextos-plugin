@@ -8,7 +8,8 @@ server and does not receive, collect or store any of your data.
 ## What ContextOS stores
 - Memories that you or Claude save (decisions, notes, todos, skills),
   in a local SQLite database under ~/.contextos/ on your machine.
-- Log files under ~/.contextos/logs/. Memory text is not written to logs.
+- Log files under ~/.contextos/logs/. Memory content is not written to
+  logs, except that saving a skill logs the skill's short name and tags.
 
 ## What ContextOS reads
 - Git information for the current repository: branch, recent commit
