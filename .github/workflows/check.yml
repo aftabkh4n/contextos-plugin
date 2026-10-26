@@ -1,0 +1,29 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The plugin must never point at a binary release that isn't published.
+      - name: MCP command matches the version, and that release exists
+        run: |
+          version=$(jq -r .version .claude-plugin/plugin.json)
+          command=$(jq -r .mcpServers.contextos.command .claude-plugin/plugin.json)
+
+          case "$command" in
+            *"/bin/$version/"*) echo "MCP command uses bin/$version" ;;
+            *) echo "::error::MCP command '$command' does not contain /bin/$version/"; exit 1 ;;
+          esac
+
+          url="https://github.com/aftabkh4n/contextos/releases/download/v$version/contextos-win-x64.zip"
+          if ! curl -fsSIL -o /dev/null "$url"; then
+            echo "::error::Release asset not found: $url. Publish the main repo release first."
+            exit 1
+          fi
+          echo "Release asset exists: $url"
