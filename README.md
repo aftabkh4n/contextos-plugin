@@ -42,6 +42,11 @@ Windows (PowerShell):
 irm https://raw.githubusercontent.com/aftabkh4n/contextos/main/install.ps1 | iex
 ```
 
+## Privacy
+
+ContextOS keeps your data on your machine and collects no telemetry. See
+[PRIVACY.md](PRIVACY.md) for what it stores, reads, and sends.
+
 ## Source
 
 ContextOS source code and binary releases live in
