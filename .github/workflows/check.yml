@@ -74,6 +74,11 @@ jobs:
           # -EncodedCommand, because Windows PowerShell 5.1 drops the inner
           # quotes when it passes a string to a native program.
           $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+
+          # The hook prints "env is not recognized" to stderr on purpose. Actions
+          # runs this step with ErrorActionPreference Stop, which would turn that
+          # stderr into a failure. Claude Code only looks at the exit code.
+          $ErrorActionPreference = 'Continue'
           powershell.exe -NoProfile -EncodedCommand $encoded
           if ($LASTEXITCODE -ne 0) { throw "hook exited $LASTEXITCODE" }
 
