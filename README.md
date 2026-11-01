@@ -23,10 +23,21 @@ This happens once per update while the new version downloads.
 
 ## Platform support
 
-The SessionStart hook is a bash script, so it runs on macOS, Linux,
-and Windows under Git Bash or WSL. Native Windows PowerShell support
-is tracked separately. For now, Windows users without bash should use
-the manual install below.
+The plugin works on macOS, Linux and Windows. Git Bash is not required
+on Windows.
+
+The SessionStart hook runs one command that every shell Claude Code uses
+can read: `sh` on macOS and Linux, Git Bash on Windows when it is
+installed, and PowerShell on Windows when it is not.
+
+- `scripts/ensure-binary.sh` installs the binary on macOS, Linux and
+  Git Bash.
+- `scripts/ensure-binary.ps1` installs it on Windows through Windows
+  PowerShell 5.1, which every Windows 10 and 11 machine has.
+
+Both scripts use the same folders and the same `.version` file, so when
+both run on a Windows machine with Git Bash, the second one sees the
+install is done and exits.
 
 ## Manual install (alternative)
 
