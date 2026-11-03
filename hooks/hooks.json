@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/ensure-binary.sh\""
+            "command": "env bash \"${CLAUDE_PLUGIN_ROOT}/scripts/ensure-binary.sh\"; powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/ensure-binary.ps1\"; exit 0"
           }
         ]
       }

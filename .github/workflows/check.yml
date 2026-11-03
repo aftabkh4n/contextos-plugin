@@ -27,3 +27,85 @@ jobs:
             exit 1
           fi
           echo "Release asset exists: $url"
+
+  # The hook command must run under sh on macOS and Linux.
+  hook-unix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Hook command installs the binary under sh
+        env:
+          CLAUDE_PLUGIN_ROOT: ${{ github.workspace }}
+          CLAUDE_PLUGIN_DATA: ${{ runner.temp }}/plugin-data
+        run: |
+          version=$(jq -r .version .claude-plugin/plugin.json)
+          command=$(jq -r '.hooks.SessionStart[0].hooks[0].command' hooks/hooks.json)
+          sh -c "$command"
+          "$CLAUDE_PLUGIN_DATA/bin/$version/contextos" --version
+          test "$(cat "$CLAUDE_PLUGIN_DATA/bin/$version/.version")" = "$version"
+
+          # A second session start must be silent and must not reinstall.
+          out=$(sh -c "$command")
+          test -z "$out" || { echo "::error::second run printed: $out"; exit 1; }
+
+  # Windows without Git Bash: Claude Code runs the hook command in PowerShell.
+  hook-windows-powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Hook command installs the binary under Windows PowerShell 5.1
+        shell: powershell
+        env:
+          CLAUDE_PLUGIN_DATA: ${{ runner.temp }}\plugin-data
+        run: |
+          $env:CLAUDE_PLUGIN_ROOT = $env:GITHUB_WORKSPACE
+          $version = (Get-Content .claude-plugin\plugin.json -Raw | ConvertFrom-Json).version
+          $command = (Get-Content hooks\hooks.json -Raw | ConvertFrom-Json).hooks.SessionStart[0].hooks[0].command
+
+          # Claude Code fills in ${CLAUDE_PLUGIN_ROOT} before PowerShell sees it.
+          $command = $command.Replace('${CLAUDE_PLUGIN_ROOT}', $env:CLAUDE_PLUGIN_ROOT)
+
+          # Hide Git's tools so this runs like a machine without Git Bash.
+          $env:Path = ($env:Path -split ';' | Where-Object { $_ -notmatch '\\Git\\' }) -join ';'
+          if (Get-Command env -ErrorAction SilentlyContinue) { throw 'env is still on PATH' }
+
+          # -EncodedCommand, because Windows PowerShell 5.1 drops the inner
+          # quotes when it passes a string to a native program.
+          $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+
+          # The hook prints "env is not recognized" to stderr on purpose. Actions
+          # runs this step with ErrorActionPreference Stop, which would turn that
+          # stderr into a failure. Claude Code only looks at the exit code.
+          $ErrorActionPreference = 'Continue'
+          powershell.exe -NoProfile -EncodedCommand $encoded
+          if ($LASTEXITCODE -ne 0) { throw "hook exited $LASTEXITCODE" }
+
+          & "$env:CLAUDE_PLUGIN_DATA\bin\$version\contextos.exe" --version
+          if ($LASTEXITCODE -ne 0) { throw 'installed binary did not run' }
+          $written = [IO.File]::ReadAllText("$env:CLAUDE_PLUGIN_DATA\bin\$version\.version")
+          if ($written -ne "$version`n") { throw ".version is '$written'" }
+
+          # A second session start must be silent and must not reinstall.
+          $out = powershell.exe -NoProfile -EncodedCommand $encoded 2>$null
+          if ($out) { throw "second run printed: $out" }
+
+  # Windows with Git Bash: both scripts run, and must agree on the install.
+  hook-windows-git-bash:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Hook command installs the binary under Git Bash
+        shell: bash
+        run: |
+          export CLAUDE_PLUGIN_ROOT="$(cygpath -w "$GITHUB_WORKSPACE")"
+          export CLAUDE_PLUGIN_DATA="$(cygpath -w "$RUNNER_TEMP")\\plugin-data"
+          version=$(jq -r .version .claude-plugin/plugin.json)
+          command=$(jq -r '.hooks.SessionStart[0].hooks[0].command' hooks/hooks.json)
+          bash -c "$command"
+          data_unix="$(cygpath -u "$CLAUDE_PLUGIN_DATA")"
+          "$data_unix/bin/$version/contextos.exe" --version
+          out=$(bash -c "$command" 2>/dev/null)
+          test -z "$out" || { echo "::error::second run printed: $out"; exit 1; }
